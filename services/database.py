@@ -17,7 +17,7 @@ def get_connection() -> sqlite3.Connection:
 
 def initialize_database() -> None:
     with get_connection() as conn:
-        conn.executescript("""
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS prospects (
                 id TEXT PRIMARY KEY,
                 prospect_name TEXT NOT NULL,
@@ -28,8 +28,9 @@ def initialize_database() -> None:
                 linkedin_summary TEXT,
                 additional_notes TEXT,
                 created_at TEXT NOT NULL
-            );
-
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS contacts (
                 id TEXT PRIMARY KEY,
                 full_name TEXT NOT NULL,
@@ -42,8 +43,9 @@ def initialize_database() -> None:
                 notes TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
-            );
-
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS generated_emails (
                 id TEXT PRIMARY KEY,
                 prospect_id TEXT NOT NULL,
@@ -60,8 +62,9 @@ def initialize_database() -> None:
                 deleted_at TEXT,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (prospect_id) REFERENCES prospects(id)
-            );
-
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS email_tracking (
                 id TEXT PRIMARY KEY,
                 email_id TEXT NOT NULL,
@@ -69,8 +72,9 @@ def initialize_database() -> None:
                 notes TEXT,
                 tracked_at TEXT NOT NULL,
                 FOREIGN KEY (email_id) REFERENCES generated_emails(id)
-            );
-
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS replies (
                 id TEXT PRIMARY KEY,
                 email_id TEXT NOT NULL,
@@ -78,23 +82,42 @@ def initialize_database() -> None:
                 replied_at TEXT NOT NULL,
                 sentiment TEXT,
                 FOREIGN KEY (email_id) REFERENCES generated_emails(id)
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_emails_prospect_id
-                ON generated_emails(prospect_id);
-            CREATE INDEX IF NOT EXISTS idx_emails_created_at
-                ON generated_emails(created_at);
-            CREATE INDEX IF NOT EXISTS idx_emails_status
-                ON generated_emails(status);
-            CREATE INDEX IF NOT EXISTS idx_emails_deleted
-                ON generated_emails(is_deleted);
-            CREATE INDEX IF NOT EXISTS idx_tracking_email_id
-                ON email_tracking(email_id);
-            CREATE INDEX IF NOT EXISTS idx_replies_email_id
-                ON replies(email_id);
-            CREATE INDEX IF NOT EXISTS idx_contacts_company
-                ON contacts(company);
+            )
         """)
+
+        # Add new columns to existing tables safely
+        # These will fail silently if columns already exist
+        try:
+            conn.execute("ALTER TABLE generated_emails ADD COLUMN language TEXT DEFAULT 'English'")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE generated_emails ADD COLUMN status TEXT DEFAULT 'draft'")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE generated_emails ADD COLUMN is_deleted INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE generated_emails ADD COLUMN deleted_at TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE generated_emails ADD COLUMN contact_id TEXT")
+        except Exception:
+            pass
+
+        # Create indexes
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_emails_prospect_id ON generated_emails(prospect_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_emails_created_at ON generated_emails(created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_emails_status ON generated_emails(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_emails_deleted ON generated_emails(is_deleted)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tracking_email_id ON email_tracking(email_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_replies_email_id ON replies(email_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company)")
+        conn.commit()
+
     logger.info("Database initialized with all tables")
 
 
@@ -157,17 +180,17 @@ def save_email(email: GeneratedEmail, language: str = "English") -> bool:
 def get_recent_emails(limit: int = 50, include_deleted: bool = False) -> list:
     try:
         with get_connection() as conn:
-            query = """
-                SELECT e.id, e.subject_line, e.email_body, e.created_at,
-                       e.status, e.language, e.word_count, e.is_deleted,
-                       p.prospect_name, p.company_name, p.prospect_role
-                FROM generated_emails e
-                JOIN prospects p ON e.prospect_id = p.id
-                WHERE e.is_deleted = ?
-                ORDER BY e.created_at DESC
-                LIMIT ?
-            """
-            rows = conn.execute(query, (1 if include_deleted else 0, limit)).fetchall()
+            rows = conn.execute(
+                """SELECT e.id, e.subject_line, e.email_body, e.created_at,
+                          e.status, e.language, e.word_count, e.is_deleted,
+                          p.prospect_name, p.company_name, p.prospect_role
+                   FROM generated_emails e
+                   JOIN prospects p ON e.prospect_id = p.id
+                   WHERE e.is_deleted = ?
+                   ORDER BY e.created_at DESC
+                   LIMIT ?""",
+                (1 if include_deleted else 0, limit)
+            ).fetchall()
             return [dict(row) for row in rows]
     except Exception as e:
         logger.error(f"Failed to fetch emails: {e}", exc_info=True)
@@ -175,10 +198,6 @@ def get_recent_emails(limit: int = 50, include_deleted: bool = False) -> list:
 
 
 def update_email_status(email_id: str, status: str, notes: str = "") -> bool:
-    """
-    Updates email pipeline status.
-    Status options: draft, sent, opened, replied, bounced
-    """
     try:
         from datetime import datetime
         import uuid
@@ -188,9 +207,11 @@ def update_email_status(email_id: str, status: str, notes: str = "") -> bool:
                 (status, email_id)
             )
             conn.execute(
-                """INSERT INTO email_tracking (id, email_id, status, notes, tracked_at)
+                """INSERT INTO email_tracking
+                   (id, email_id, status, notes, tracked_at)
                    VALUES (?, ?, ?, ?, ?)""",
-                (str(uuid.uuid4()), email_id, status, notes, datetime.utcnow().isoformat())
+                (str(uuid.uuid4()), email_id, status,
+                 notes, datetime.utcnow().isoformat())
             )
         return True
     except Exception as e:
@@ -199,12 +220,13 @@ def update_email_status(email_id: str, status: str, notes: str = "") -> bool:
 
 
 def soft_delete_email(email_id: str) -> bool:
-    """Moves email to recycle bin without permanently deleting."""
     try:
         from datetime import datetime
         with get_connection() as conn:
             conn.execute(
-                "UPDATE generated_emails SET is_deleted = 1, deleted_at = ? WHERE id = ?",
+                """UPDATE generated_emails
+                   SET is_deleted = 1, deleted_at = ?
+                   WHERE id = ?""",
                 (datetime.utcnow().isoformat(), email_id)
             )
         return True
@@ -214,11 +236,12 @@ def soft_delete_email(email_id: str) -> bool:
 
 
 def restore_email(email_id: str) -> bool:
-    """Restores email from recycle bin."""
     try:
         with get_connection() as conn:
             conn.execute(
-                "UPDATE generated_emails SET is_deleted = 0, deleted_at = NULL WHERE id = ?",
+                """UPDATE generated_emails
+                   SET is_deleted = 0, deleted_at = NULL
+                   WHERE id = ?""",
                 (email_id,)
             )
         return True
@@ -228,12 +251,20 @@ def restore_email(email_id: str) -> bool:
 
 
 def permanent_delete_email(email_id: str) -> bool:
-    """Permanently deletes email from recycle bin."""
     try:
         with get_connection() as conn:
-            conn.execute("DELETE FROM email_tracking WHERE email_id = ?", (email_id,))
-            conn.execute("DELETE FROM replies WHERE email_id = ?", (email_id,))
-            conn.execute("DELETE FROM generated_emails WHERE id = ?", (email_id,))
+            conn.execute(
+                "DELETE FROM email_tracking WHERE email_id = ?",
+                (email_id,)
+            )
+            conn.execute(
+                "DELETE FROM replies WHERE email_id = ?",
+                (email_id,)
+            )
+            conn.execute(
+                "DELETE FROM generated_emails WHERE id = ?",
+                (email_id,)
+            )
         return True
     except Exception as e:
         logger.error(f"Failed to permanently delete: {e}", exc_info=True)
@@ -241,13 +272,13 @@ def permanent_delete_email(email_id: str) -> bool:
 
 
 def save_reply(email_id: str, reply_text: str, sentiment: str = "") -> bool:
-    """Saves a reply received for a specific email."""
     try:
         from datetime import datetime
         import uuid
         with get_connection() as conn:
             conn.execute(
-                """INSERT INTO replies (id, email_id, reply_text, replied_at, sentiment)
+                """INSERT INTO replies
+                   (id, email_id, reply_text, replied_at, sentiment)
                    VALUES (?, ?, ?, ?, ?)""",
                 (str(uuid.uuid4()), email_id, reply_text,
                  datetime.utcnow().isoformat(), sentiment)
@@ -263,11 +294,12 @@ def save_reply(email_id: str, reply_text: str, sentiment: str = "") -> bool:
 
 
 def get_replies(email_id: str) -> list:
-    """Gets all replies for a specific email."""
     try:
         with get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM replies WHERE email_id = ? ORDER BY replied_at DESC",
+                """SELECT * FROM replies
+                   WHERE email_id = ?
+                   ORDER BY replied_at DESC""",
                 (email_id,)
             ).fetchall()
             return [dict(row) for row in rows]
@@ -277,12 +309,12 @@ def get_replies(email_id: str) -> list:
 
 
 def get_email_tracking(email_id: str) -> list:
-    """Gets full tracking history for an email."""
     try:
         with get_connection() as conn:
             rows = conn.execute(
                 """SELECT * FROM email_tracking
-                   WHERE email_id = ? ORDER BY tracked_at ASC""",
+                   WHERE email_id = ?
+                   ORDER BY tracked_at ASC""",
                 (email_id,)
             ).fetchall()
             return [dict(row) for row in rows]
@@ -292,7 +324,6 @@ def get_email_tracking(email_id: str) -> list:
 
 
 def save_contact(contact: dict) -> bool:
-    """Saves a new contact to the contacts table."""
     try:
         from datetime import datetime
         import uuid
@@ -324,7 +355,6 @@ def save_contact(contact: dict) -> bool:
 
 
 def get_all_contacts() -> list:
-    """Returns all saved contacts."""
     try:
         with get_connection() as conn:
             rows = conn.execute(
@@ -337,10 +367,12 @@ def get_all_contacts() -> list:
 
 
 def delete_contact(contact_id: str) -> bool:
-    """Permanently deletes a contact."""
     try:
         with get_connection() as conn:
-            conn.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
+            conn.execute(
+                "DELETE FROM contacts WHERE id = ?",
+                (contact_id,)
+            )
         return True
     except Exception as e:
         logger.error(f"Failed to delete contact: {e}", exc_info=True)
@@ -348,7 +380,6 @@ def delete_contact(contact_id: str) -> bool:
 
 
 def get_analytics_data() -> dict:
-    """Returns aggregated analytics for the dashboard."""
     try:
         with get_connection() as conn:
             total = conn.execute(
@@ -357,14 +388,17 @@ def get_analytics_data() -> dict:
 
             by_status = conn.execute(
                 """SELECT status, COUNT(*) as count
-                   FROM generated_emails WHERE is_deleted = 0
+                   FROM generated_emails
+                   WHERE is_deleted = 0
                    GROUP BY status"""
             ).fetchall()
 
             by_language = conn.execute(
                 """SELECT language, COUNT(*) as count
-                   FROM generated_emails WHERE is_deleted = 0
-                   GROUP BY language ORDER BY count DESC"""
+                   FROM generated_emails
+                   WHERE is_deleted = 0
+                   GROUP BY language
+                   ORDER BY count DESC"""
             ).fetchall()
 
             total_replies = conn.execute(
@@ -381,7 +415,9 @@ def get_analytics_data() -> dict:
                 "by_language": [dict(r) for r in by_language],
                 "total_replies": total_replies,
                 "total_contacts": total_contacts,
-                "reply_rate": round((total_replies / total * 100), 1) if total > 0 else 0
+                "reply_rate": round(
+                    (total_replies / total * 100), 1
+                ) if total > 0 else 0
             }
     except Exception as e:
         logger.error(f"Failed to fetch analytics: {e}", exc_info=True)
