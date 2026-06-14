@@ -31,15 +31,140 @@ TONE_INSTRUCTIONS = {
     )
 }
 
+LANGUAGE_INSTRUCTIONS = {
+    # International
+    "English": {
+        "name": "English",
+        "instruction": "Write the entire email in English.",
+        "flag": "🇬🇧"
+    },
+    "Spanish": {
+        "name": "Spanish",
+        "instruction": "Write the entire email in Spanish (Español). Use natural, professional Spanish.",
+        "flag": "🇪🇸"
+    },
+    "French": {
+        "name": "French",
+        "instruction": "Write the entire email in French (Français). Use natural, professional French.",
+        "flag": "🇫🇷"
+    },
+    "German": {
+        "name": "German",
+        "instruction": "Write the entire email in German (Deutsch). Use natural, professional German.",
+        "flag": "🇩🇪"
+    },
+    "Arabic": {
+        "name": "Arabic",
+        "instruction": "Write the entire email in Arabic (العربية). Use formal, professional Arabic.",
+        "flag": "🇸🇦"
+    },
+    "Chinese": {
+        "name": "Chinese",
+        "instruction": "Write the entire email in Simplified Chinese (简体中文). Use professional business Chinese.",
+        "flag": "🇨🇳"
+    },
+    "Japanese": {
+        "name": "Japanese",
+        "instruction": "Write the entire email in Japanese (日本語). Use keigo (敬語) formal business Japanese.",
+        "flag": "🇯🇵"
+    },
 
-def build_prompt(prospect: ProspectInput, research: ResearchData):
+    # Indian Languages
+    "Hindi": {
+        "name": "Hindi",
+        "instruction": "Write the entire email in Hindi (हिन्दी). Use professional and formal Hindi.",
+        "flag": "🇮🇳"
+    },
+    "Bengali": {
+        "name": "Bengali",
+        "instruction": "Write the entire email in Bengali (বাংলা). Use professional and formal Bengali.",
+        "flag": "🇮🇳"
+    },
+    "Tamil": {
+        "name": "Tamil",
+        "instruction": "Write the entire email in Tamil (தமிழ்). Use professional and formal Tamil.",
+        "flag": "🇮🇳"
+    },
+    "Telugu": {
+        "name": "Telugu",
+        "instruction": "Write the entire email in Telugu (తెలుగు). Use professional and formal Telugu.",
+        "flag": "🇮🇳"
+    },
+    "Marathi": {
+        "name": "Marathi",
+        "instruction": "Write the entire email in Marathi (मराठी). Use professional and formal Marathi.",
+        "flag": "🇮🇳"
+    },
+    "Gujarati": {
+        "name": "Gujarati",
+        "instruction": "Write the entire email in Gujarati (ગુજરાતી). Use professional and formal Gujarati.",
+        "flag": "🇮🇳"
+    },
+    "Kannada": {
+        "name": "Kannada",
+        "instruction": "Write the entire email in Kannada (ಕನ್ನಡ). Use professional and formal Kannada.",
+        "flag": "🇮🇳"
+    },
+    "Malayalam": {
+        "name": "Malayalam",
+        "instruction": "Write the entire email in Malayalam (മലയാളം). Use professional and formal Malayalam.",
+        "flag": "🇮🇳"
+    },
+    "Punjabi": {
+        "name": "Punjabi",
+        "instruction": "Write the entire email in Punjabi (ਪੰਜਾਬੀ). Use professional and formal Punjabi.",
+        "flag": "🇮🇳"
+    },
+    "Odia": {
+        "name": "Odia",
+        "instruction": "Write the entire email in Odia (ଓଡ଼ିଆ). Use professional and formal Odia.",
+        "flag": "🇮🇳"
+    },
+    "Urdu": {
+        "name": "Urdu",
+        "instruction": "Write the entire email in Urdu (اردو). Use professional and formal Urdu.",
+        "flag": "🇵🇰"
+    },
+}
+
+# All available languages for the UI dropdown
+ALL_LANGUAGES = list(LANGUAGE_INSTRUCTIONS.keys())
+
+# Grouped for display
+INTERNATIONAL_LANGUAGES = [
+    "English", "Spanish", "French", "German",
+    "Arabic", "Chinese", "Japanese"
+]
+
+INDIAN_LANGUAGES = [
+    "Hindi", "Bengali", "Tamil", "Telugu", "Marathi",
+    "Gujarati", "Kannada", "Malayalam", "Punjabi", "Odia", "Urdu"
+]
+
+
+def build_prompt(
+    prospect: ProspectInput,
+    research: ResearchData,
+    language: str = "English"
+) -> tuple[str, str]:
+    """
+    Builds system and user prompts with language support.
+    """
     tone_instruction = TONE_INSTRUCTIONS.get(
         prospect.tone, TONE_INSTRUCTIONS["friendly"]
     )
 
-    system_prompt = f"""You are an elite Sales Development Representative (SDR) with 10+ years of experience writing cold emails that get replies.
+    lang_data = LANGUAGE_INSTRUCTIONS.get(
+        language, LANGUAGE_INSTRUCTIONS["English"]
+    )
+    lang_instruction = lang_data["instruction"]
+
+    system_prompt = f"""You are an elite Sales Development Representative (SDR) with 10+ years of experience writing cold emails that get replies across global markets.
 
 TONE: {tone_instruction}
+
+LANGUAGE: {lang_instruction}
+IMPORTANT: The ENTIRE email including subject line, body, and CTA must be written in {language}. Do not mix languages.
 
 STRICT OUTPUT RULES:
 1. Your response MUST follow this exact format:
@@ -49,29 +174,30 @@ STRICT OUTPUT RULES:
 
 2. Email body must be 80-150 words. No exceptions.
 3. Subject line must be under 60 characters. No all-caps.
-4. Never use these words: guaranteed, free, urgent, act now, limited time.
-5. Never start with "I hope this email finds you well".
+4. Never use spam trigger words.
+5. Never start with generic openers.
 6. Only use information provided. Do not invent facts.
 7. The email must feel personally researched, not templated.
 8. Include exactly one clear call-to-action.
-9. Sign off naturally without a name."""
+9. Sign off naturally without a name.
+10. Maintain cultural appropriateness for the {language} language and its business culture."""
 
     prospect_context = _build_prospect_context(prospect)
     research_context = _build_research_context(research)
 
-    user_prompt = f"""Generate a personalized cold email for the following prospect.
+    user_prompt = f"""Generate a personalized cold email in {language} for the following prospect.
 
 PROSPECT INFORMATION:
 {prospect_context}
 
 {research_context}
 
-Generate the email now following all formatting rules exactly."""
+Remember: Write everything in {language} only. Follow all formatting rules exactly."""
 
     logger.info(
-        f"Prompt built for {prospect.prospect_name} | "
-        f"Tone: {prospect.tone} | "
-        f"Research available: {research.research_successful}"
+        f"Prompt built | Prospect: {prospect.prospect_name} | "
+        f"Tone: {prospect.tone} | Language: {language} | "
+        f"Research: {research.research_successful}"
     )
 
     return system_prompt, user_prompt
@@ -83,29 +209,21 @@ def _build_prospect_context(prospect: ProspectInput) -> str:
         f"- Role: {prospect.prospect_role}",
         f"- Company: {prospect.company_name}",
     ]
-
     if prospect.company_website:
         lines.append(f"- Company Website: {prospect.company_website}")
-
     if prospect.linkedin_summary:
         lines.append(f"- LinkedIn Summary: {prospect.linkedin_summary}")
-
     if prospect.additional_notes:
         lines.append(f"- Additional Context: {prospect.additional_notes}")
-
     return "\n".join(lines)
 
 
 def _build_research_context(research: ResearchData) -> str:
     if not research.research_successful:
         return ""
-
     lines = ["COMPANY INTELLIGENCE (from website research):"]
-
     if research.description:
         lines.append(f"- Company Description: {research.description}")
-
     if research.raw_text:
-        lines.append(f"- Website Content Summary: {research.raw_text[:500]}...")
-
+        lines.append(f"- Website Content: {research.raw_text[:500]}...")
     return "\n".join(lines)
