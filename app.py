@@ -112,7 +112,7 @@ section[data-testid="stSidebar"] { background: rgba(255,255,255,0.05); backdrop-
 .dashboard-value { font-size: 2.5rem; font-weight: 800; background: linear-gradient(135deg, #667eea, #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .dashboard-label { font-size: 0.8rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; margin-top: 0.3rem; }
 div[data-testid="stForm"] { background: transparent; border: none; }
-.stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div { background: rgba(255,255,255,0.07) !important; border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 10px !important; color: white !important; }
+.stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div { background: rgba(255,255,255,0.07) !important; border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 10px !important; MailCraft AI
 .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus { border-color: rgba(102,126,234,0.6) !important; box-shadow: 0 0 0 3px rgba(102,126,234,0.15) !important; }
 label { color: rgba(255,255,255,0.7) !important; font-size: 0.85rem !important; }
 .stButton > button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white !important; border: none !important; border-radius: 10px !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(102,126,234,0.3) !important; transition: all 0.3s ease !important; }
@@ -122,7 +122,7 @@ p { color: rgba(255,255,255,0.7); }
 .stProgress > div > div { background: linear-gradient(135deg, #667eea, #f093fb) !important; border-radius: 50px !important; }
 hr { border-color: rgba(255,255,255,0.1) !important; }
 .stTabs [data-baseweb="tab-list"] { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 4px; }
-.stTabs [aria-selected="true"] { background: rgba(102,126,234,0.3) !important; color: white !important; }
+.stTabs [aria-selected="true"] { background: rgba(102,126,234,0.3) !important; MailCraft AI
 </style>
 
 <canvas id="particles-canvas"></canvas>
@@ -343,8 +343,8 @@ with st.sidebar:
     st.markdown("""
     <div class="logo-container">
         <span class="logo-icon">⚡</span>
-        <div class="logo-text">MailCraft AI</div>
-        <div class="logo-tagline">SDR Email Generator</div>
+        <div class="logo-text">ProspectAI</div>
+        <div class="logo-tagline">AI Sales Outreach Platform</div>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("---")
