@@ -227,3 +227,159 @@ def _build_research_context(research: ResearchData) -> str:
     if research.raw_text:
         lines.append(f"- Website Content: {research.raw_text[:500]}...")
     return "\n".join(lines)
+# ── OUTREACH SUITE PROMPTS ──────────────────────────────────
+
+def build_whatsapp_prompt(prospect: ProspectInput, language: str = "English") -> tuple[str, str]:
+    """Builds prompt for WhatsApp outreach message."""
+    lang_data = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["English"])
+
+    system_prompt = f"""You are an expert sales professional writing WhatsApp outreach messages.
+
+LANGUAGE: {lang_data["instruction"]}
+
+RULES:
+1. Format must be exactly:
+   MESSAGE: [your whatsapp message]
+
+2. Message must be 50-80 words maximum
+3. Must sound casual and conversational — this is WhatsApp not email
+4. Use simple language — no corporate jargon
+5. Include one clear question or CTA at the end
+6. Never use bullet points or formal structure
+7. Sound like a real person texting, not a bot
+8. No subject line needed — just the message"""
+
+    user_prompt = f"""Write a WhatsApp outreach message for:
+- Name: {prospect.prospect_name}
+- Role: {prospect.prospect_role}
+- Company: {prospect.company_name}
+
+Write in {language}. Keep it casual, short, and human."""
+
+    return system_prompt, user_prompt
+
+
+def build_linkedin_prompt(
+    prospect: ProspectInput,
+    message_type: str = "connection",
+    language: str = "English"
+) -> tuple[str, str]:
+    """
+    Builds prompt for LinkedIn messages.
+    message_type: 'connection' or 'dm'
+    """
+    lang_data = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["English"])
+
+    if message_type == "connection":
+        rules = """
+2. Must be under 300 characters — LinkedIn connection request limit
+3. Sound genuine and specific — not copy-paste
+4. Mention something specific about their role or company
+5. Do not pitch anything — just a warm connection request
+6. End with a simple reason to connect"""
+        word_limit = "under 50 words"
+    else:
+        rules = """
+2. Must be 100-150 words
+3. Reference that you are already connected
+4. Lead with value — what's in it for them
+5. One clear CTA at the end
+6. Sound like a peer not a vendor"""
+        word_limit = "100-150 words"
+
+    system_prompt = f"""You are an expert at LinkedIn outreach writing {word_limit} messages.
+
+LANGUAGE: {lang_data["instruction"]}
+
+RULES:
+1. Format must be exactly:
+   MESSAGE: [your linkedin message]
+{rules}"""
+
+    user_prompt = f"""Write a LinkedIn {message_type} request message for:
+- Name: {prospect.prospect_name}
+- Role: {prospect.prospect_role}
+- Company: {prospect.company_name}
+
+Write in {language}."""
+
+    return system_prompt, user_prompt
+
+
+def build_cold_call_prompt(prospect: ProspectInput, language: str = "English") -> tuple[str, str]:
+    """Builds prompt for cold call script."""
+    lang_data = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["English"])
+
+    system_prompt = f"""You are an expert sales trainer writing cold call scripts.
+
+LANGUAGE: {lang_data["instruction"]}
+
+RULES:
+1. Format must be exactly:
+   OPENER: [first 10 seconds — introduce yourself]
+   HOOK: [the reason for calling — pain point or opportunity]
+   PITCH: [15 second value proposition]
+   QUESTION: [one open-ended discovery question]
+   CTA: [ask for the meeting]
+   OBJECTION: [handle the most likely objection]
+
+2. Total script should take 60-90 seconds to read aloud
+3. Sound natural and conversational
+4. Use the prospect's name and company name
+5. Never sound like you're reading from a script"""
+
+    user_prompt = f"""Write a cold call script for:
+- Prospect: {prospect.prospect_name}
+- Role: {prospect.prospect_role}
+- Company: {prospect.company_name}
+
+Write in {language}."""
+
+    return system_prompt, user_prompt
+
+
+def build_followup_prompt(
+    prospect: ProspectInput,
+    original_email: str,
+    followup_number: int = 1,
+    language: str = "English"
+) -> tuple[str, str]:
+    """Builds follow-up email prompts with different angles."""
+    lang_data = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["English"])
+
+    angles = {
+        1: "Add new value — share a relevant insight, stat, or case study they haven't heard",
+        2: "Create urgency — reference timing, a trend, or a recent development in their industry",
+        3: "Break-up email — acknowledge they're busy, make it easy to say no or yes, keep it 3 sentences max"
+    }
+
+    angle = angles.get(followup_number, angles[1])
+
+    system_prompt = f"""You are an elite SDR writing follow-up emails.
+
+LANGUAGE: {lang_data["instruction"]}
+
+FOLLOW-UP #{followup_number} ANGLE: {angle}
+
+RULES:
+1. Format must be exactly:
+   SUBJECT: [subject line — reference original or use pattern interrupt]
+   BODY: [follow-up email body]
+   CTA: [call to action]
+
+2. Must be 50-80 words — shorter than original
+3. Never repeat what was said in the original email
+4. Must feel fresh and add new value
+5. Reference that this is a follow-up naturally"""
+
+    user_prompt = f"""Write follow-up #{followup_number} for:
+- Prospect: {prospect.prospect_name}
+- Role: {prospect.prospect_role}
+- Company: {prospect.company_name}
+
+Original email sent:
+{original_email[:500]}
+
+Write in {language}. Use the angle specified."""
+
+    return system_prompt, user_prompt
