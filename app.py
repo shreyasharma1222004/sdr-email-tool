@@ -117,8 +117,7 @@ div[data-testid="stForm"] { background: transparent; border: none; }
 label { color: rgba(255,255,255,0.7) !important; font-size: 0.85rem !important; }
 .stButton > button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; color: white !important; border: none !important; border-radius: 10px !important; font-weight: 600 !important; box-shadow: 0 4px 15px rgba(102,126,234,0.3) !important; transition: all 0.3s ease !important; }
 .stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0 8px 25px rgba(102,126,234,0.5) !important; }
-.stDownloadButton > button { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.8) !important; border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 10px !important; }
-h1, h2, h3 { color: white !important; }
+.stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div { background: rgba(255,255,255,0.95) !important; border: 1px solid rgba(255,255,255,0.3) !important; border-radius: 10px !important; color: #1a1a1a !important; }
 p { color: rgba(255,255,255,0.7); }
 .stProgress > div > div { background: linear-gradient(135deg, #667eea, #f093fb) !important; border-radius: 50px !important; }
 hr { border-color: rgba(255,255,255,0.1) !important; }
